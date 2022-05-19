@@ -5,7 +5,7 @@ import random
 
 from torch.autograd import Variable
 
-from opt_dlrm.iou_loss import iou_pytorch
+from iou_loss import iou_pytorch
 
 def mask_3d(inputs, seq_len, mask_value=0.):
     batches = inputs.size()[0]

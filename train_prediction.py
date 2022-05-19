@@ -8,6 +8,8 @@ import tqdm
 import torch.nn.functional as F
 from seq2seq_prefetching import Seq2Seq
 from torch.utils import data
+import pandas as pd
+import numpy as np
 
 #processing data: chuckization, chunksize is 1
 def data(input_file):
@@ -129,13 +131,12 @@ if __name__ == '__main__':
     parser.add_argument('--config', type=str)
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('traceFile', type=str,  help='trace file name\n')
-    parser.add_argument('n', type=int,  help='input sequence length N\n')
-    parser.add_argument('m', type=int,  help='output sequence length\n')
+    #parser.add_argument('--n', default=10,type=int,  help='input sequence length N\n')
+    #parser.add_argument('--m', default=50,type=int,  help='output sequence length\n')
+    #parser.add_argument('--w', default=50,type=int,  help='prediction window size length\n')
     args = parser.parse_args() 
 
     traceFile = args.traceFile
-    M = args.m
-    N = args.n
     FLAGS, _ = parser.parse_known_args()
     
     gt_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.csv"
