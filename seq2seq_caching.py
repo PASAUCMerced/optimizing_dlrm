@@ -3,16 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import pickle as pkl
-import keras
+from tensorflow import keras 
 from keras.models import Sequential, Model, load_model
 from keras.layers import LSTM, Dense, RepeatVector, TimeDistributed, Input, BatchNormalization, \
     multiply, concatenate, Flatten, Activation, dot
 from tensorflow.keras.optimizers import Adam 
-from keras.utils.vis_utils import plot_model
 from keras.callbacks import EarlyStopping
 import pydot as pyd
-from keras.utils.vis_utils import plot_model, model_to_dot
-keras.utils.vis_utils.pydot = pyd
+from tensorflow.python.keras.utils.vis_utils import plot_model, model_to_dot
 import torch
 import collections 
 from sklearn.model_selection import train_test_split
@@ -113,12 +111,15 @@ def main():
         traceFile = args.traceFile
         M = args.m
         N = args.n
-        gt_trace = traceFile[0:traceFile.rfind(".pt")] + "_cached_trace_opt.csv"
+        gt_trace = traceFile[0:traceFile.rfind(".pt")] + "_cached_trace_opt.txt"
 
         #dataset = data("dlrm_datasets/embedding_bag/fbgemm_t856_bs65536_9.pt")
         dataset = data(traceFile)
-        csvdata = pd.read_csv(gt_trace)
-        gt = csvdata[1].tolist()
+        #csvdata = pd.read_csv(gt_trace)
+        #gt = csvdata[1].tolist()
+        gt_file = open(gt_trace, "r")
+        gt_tmp = gt_file.readlines()
+        gt =  [float(x) for x in gt_tmp]
         #ensure the training and groudtruth has the same size. When we processing groundtruth, we cutout some data
         dataset = dataset[:len(gt)]
          #input sequence length
@@ -128,12 +129,13 @@ def main():
         # evalutaion window size
         #W = 150
 
-        X_in, X_out, lbl = truncate(merge(dataset, gt), feature_cols=range(2), target_cols=0, 
+        X_in, X_out, lbl = truncate(merge(dataset, gt), feature_cols=range(1), target_cols=0, 
                             label_col=1, train_len=N, test_len=M)
         X_input_train = X_in[np.where(lbl==1)]
         X_output_train = X_out[np.where(lbl==1)]
         X_input_test = X_in[np.where(lbl==0)]
         X_output_test = X_out[np.where(lbl==0)]
+        print("Finish data loadding")
         print(X_input_train.shape, X_output_train.shape)
         print(X_input_test.shape, X_output_test.shape)
 
@@ -146,7 +148,7 @@ def main():
         model.compile(loss='mean_squared_error', optimizer=opt, metrics=['mae'])
         model.summary()
 
-        ep=200
+        ep=1200
         es = EarlyStopping(monitor='val_loss', mode='min', patience=50)
         history = model.fit(X_input_train[:, :, :2], X_output_train[:, :, :2], validation_split=0.2, 
                         epochs=epc, verbose=1, callbacks=[es], 

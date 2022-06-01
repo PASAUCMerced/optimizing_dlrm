@@ -128,8 +128,8 @@ def run(dataset, eval_dataset):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str)
-    parser.add_argument('--epochs', default=20, type=int)
+    #parser.add_argument('--config', type=str)
+    parser.add_argument('--epochs', default=120, type=int)
     parser.add_argument('traceFile', type=str,  help='trace file name\n')
     #parser.add_argument('--n', default=10,type=int,  help='input sequence length N\n')
     #parser.add_argument('--m', default=50,type=int,  help='output sequence length\n')
@@ -139,10 +139,11 @@ if __name__ == '__main__':
     traceFile = args.traceFile
     FLAGS, _ = parser.parse_known_args()
     
-    gt_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.csv"
+    gt_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.txt"
     dataset = data(traceFile) 
-    csvdata = pd.read_csv(gt_trace)
-    gt = csvdata[1].tolist()
+    gt_file = open(gt_trace, "r")
+    gt_tmp = gt_file.readlines()
+    gt =  [float(x) for x in gt_tmp]
     #ensure the training and groudtruth has the same size. When we processing groundtruth, we cutout some data
     dataset = dataset[:len(gt)]
 

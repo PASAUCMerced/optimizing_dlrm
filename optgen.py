@@ -66,38 +66,46 @@ def getFurthestAccessBlock():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='OPT.\n')
     parser.add_argument('cache_percent', type=float,  help='relative cache size, e.g., 0.2 stands for 20\% of total trace length\n')
-    parser.add_argument('idx', type=int,  help='column number of blocks. type 0 if only 1 column containing block trace is present\n')
+    #parser.add_argument('idx', type=int,  help='column number of blocks. type 0 if only 1 column containing block trace is present\n')
+    parser.add_argument('indice_size', type=int,  help='number of indices will be processed\n')
     parser.add_argument('traceFile', type=str,  help='trace file name\n')
     args = parser.parse_args() 
 
     cache_size = args.cache_percent
-    idx = args.idx
+    #idx = args.idx
+    indice_size = args.indice_size
     traceFile = args.traceFile
+    idx=0
     
   
     block_trace, offsets, lengths = torch.load(traceFile)
 
-    items = np.unique(block_trace)
+    #items = np.unique(block_trace)
+    #print(f"num of unique indices is {len(items)}")
+    #blockTraceLength = len(block_trace)
+    #cache_size = int(cache_size * len(items))
+
+    block_trace =  block_trace.numpy()
+    
+    block_tmp=[]
+    block_tmp = block_trace[:indice_size]
+
+    items = np.unique(block_tmp)
     print(f"num of unique indices is {len(items)}")
-    blockTraceLength = len(block_trace)
-    cache_size = int(cache_size * len(items))
-
-    block_trace = [x.item() for x in block_trace]
-
+    blockTraceLength = len(block_tmp)
+    cache_size = int(cache_size * len(block_tmp))
+    
     print (f"created block trace list, cache size is {cache_size}")
+    
 
-    cache_hit = np.zeros(blockTraceLength)
-    cache_miss = np.zeros(blockTraceLength)
-
-    print (f"created block trace list, cache size is {cache_size}")
     # build OPT 
     
     OPT = defaultdict(partial(np.ndarray,0))
     
 
     seq_number = 0
-    for b in tqdm(block_trace):
-    #for b in tqdm(block_tmp):
+    #for b in tqdm(block_trace):
+    for b in tqdm(block_tmp):
         OPT[b] = np.append(OPT[b],seq_number)
         seq_number+=1
     
@@ -109,24 +117,34 @@ if __name__ == "__main__":
     miss_count = 0
     
     C = set()
+
+    cached_trace = traceFile[0:traceFile.rfind(".pt")] + "_cached_trace_opt.txt"
+    dataset_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.txt"
+    f_hit = open(cached_trace,"w")
+    f_miss = open(dataset_trace,"w")
+
     
     seq_number = 0
-    for b in tqdm(block_trace):
-    #for b in tqdm(block_tmp):
+    #for b in tqdm(block_trace):
+    for b in tqdm(block_tmp):
         seq_number+=1
         if(seq_number % (blockTraceLength / 10) == 0):
             print("Completed "+str(( seq_number * 100 / blockTraceLength)) + " %")
         if b in C:
-            print ("HIT " + str(b))
+            #print ("HIT " + str(b))
             #np.delete(OPT[b],[0])
             #OPT[b] = OPT[b][1:]
             OPT[b] = np.delete(OPT[b],0)
             hit_count+=1
-            cache_hit[seq_number-1] = 1
+            #cache_hit[seq_number-1] = 1
+            f_hit.write("1\n")
+            f_miss.write("0\n")
         else:
-            print ("MISS " + str(b))
+            #print ("MISS " + str(b))
             miss_count+=1
-            cache_miss[seq_number-1] = b
+            #cache_miss[seq_number-1] = b
+            f_hit.write("0\n")
+            f_miss.write(str(b)+'\n')
             if len(C) == cache_size:
                 fblock = getFurthestAccessBlock()
                 assert(fblock != -1)
@@ -140,15 +158,14 @@ if __name__ == "__main__":
     
     print ("hit count" + str(hit_count))
     print ("miss count" + str(miss_count))
-    
-    cached_trace = traceFile[0:traceFile.rfind(".pt")] + "_cached_trace_opt.csv"
-    df = pd.DataFrame(cache_hit)
-    df.to_csv(cached_trace)
+    f_miss.close()
+    f_hit.close()
+    #cached_trace = traceFile[0:traceFile.rfind(".pt")] + "_cached_trace_opt.csv"
+    #df = pd.DataFrame(cache_hit)
+    #df.to_csv(cached_trace)
 
-    dataset_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.csv"
-    df = pd.DataFrame(cache_miss)
-    df.to_csv(dataset_trace)
-    #print ("Cache")
-    #print (C)
-    #print (OPT)
+    #dataset_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.csv"
+    #df = pd.DataFrame(cache_miss)
+    #df.to_csv(dataset_trace)
+ 
 
