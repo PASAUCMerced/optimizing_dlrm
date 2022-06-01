@@ -5,10 +5,10 @@
 
 2. Train ML model for caching
     We set input sequence length as 150 and output sequence length as 10. The total number of training steps is 1.2K
-    python3 seq2seq_caching.py /path/to/fbgemm_t856_bs65536_16.pt 150 10
+    $python3 seq2seq_caching.py /path/to/fbgemm_t856_bs65536_16.pt 150 10
 
 3. Train ML model for prefetching
-   python3 train_prediction.py /path/to/fbgemm_t856_bs65536_16.pt config.json
+   $python3 train_prediction.py /path/to/fbgemm_t856_bs65536_16.pt config.json
    //config.json file to be udpate.
 
 
