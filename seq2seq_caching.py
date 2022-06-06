@@ -42,7 +42,7 @@ def merge(list1, list2):
     merged_list = [(list1[i], list2[i]) for i in range(0, len(list1))]
     return merged_list
 
-def model(N, M, X_input_train, X_output_train):
+def build(N, M, X_input_train, X_output_train):
         n_hidden = N
 
         #input layer
@@ -51,7 +51,7 @@ def model(N, M, X_input_train, X_output_train):
 
         # encoder
         encoder_stack_h, encoder_last_h, encoder_last_c = LSTM(
-        n_hidden, activation='elu', dropout=0.2, recurrent_dropout=0.2, 
+        n_hidden, activation='relu', dropout=0.2, recurrent_dropout=0.2, 
         return_state=True, return_sequences=True)(input_train)
         print(encoder_stack_h)
         print(encoder_last_h)
@@ -65,7 +65,7 @@ def model(N, M, X_input_train, X_output_train):
         decoder_input = RepeatVector(output_train.shape[1])(encoder_last_h)
         print(decoder_input)
 
-        decoder_stack_h = LSTM(n_hidden, activation='elu', dropout=0.2, recurrent_dropout=0.2,
+        decoder_stack_h = LSTM(n_hidden, activation='relu', dropout=0.2, recurrent_dropout=0.2,
         return_state=False, return_sequences=True)(
         decoder_input, initial_state=[encoder_last_h, encoder_last_c])
         print(decoder_stack_h)
@@ -83,9 +83,18 @@ def model(N, M, X_input_train, X_output_train):
         out = TimeDistributed(Dense(output_train.shape[2]))(decoder_combined_context)
         print(out)
 
+        model = Model(inputs=input_train, outputs=out)
+        opt = Adam(lr=0.001, clipnorm=1)
+        model.compile(loss=keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=[keras.metrics.CategoricalAccuracy()])
+        #model.compile(loss='mean_squared_error', optimizer=opt, metrics=['accuracy'])
+
+        model.summary()
+        #plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+        return model
 
 
-def test(X_input_train, X_input_test, X_output_train, X_output_test):
+
+def test(model, X_input_train, X_input_test, X_output_train, X_output_test, x_train_max):
         train_pred_detrend = model.predict(X_input_train[:, :, :2])*x_train_max[:2]
         test_pred_detrend = model.predict(X_input_test[:, :, :2])*x_train_max[:2]
         print(train_pred_detrend.shape, test_pred_detrend.shape)
@@ -99,6 +108,10 @@ def test(X_input_train, X_input_test, X_output_train, X_output_test):
         train_true_detrend = np.concatenate([train_true_detrend, np.expand_dims(X_output_train[:, :, 2], axis=2)], axis=2)
         test_true_detrend = np.concatenate([test_true_detrend, np.expand_dims(X_output_test[:, :, 2], axis=2)], axis=2)
         print(train_pred_detrend.shape, test_pred_detrend.shape)
+        print(test_true_detrend)
+        print(test_pred_detrend)
+
+        return train_pred_detrend, train_true_detrend, test_pred_detrend, test_true_detrend
 
 
 def main():
@@ -129,34 +142,114 @@ def main():
         # evalutaion window size
         #W = 150
 
-        X_in, X_out, lbl = truncate(merge(dataset, gt), feature_cols=range(1), target_cols=0, 
-                            label_col=1, train_len=N, test_len=M)
+        '''
+        plt.figure(figsize=(50, 4))
+        plt.plot(range(len(dataset)), dataset, label='dataset')
+        #plt.plot(range(len(x1_trend)), x1_trend, linestyle='--', label='x1_trend')
+        plt.plot(range(len(gt)), gt, label='gt')
+        #plt.plot(range(len(x2_trend)), x2_trend, linestyle='--', label='x2_trend')
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), fancybox=True, shadow=False, ncol=2)
+        #plt.show()
+        plt.savefig('example.png')
+        '''
+      
+        x_index = np.array(range(len(gt)))
+        train_ratio = 0.8
+        train_len = int(train_ratio * len(gt))
+        print(train_len)
+
+        x_lbl = np.column_stack([dataset, gt, x_index, [1]*train_len+[0]*(len(x_index)-train_len)])
+        print(x_lbl.shape)
+        print(x_lbl)
+
+        '''
+        plt.figure(figsize=(50, 4))
+        plt.plot(range(train_len), x_lbl[:train_len, 0], label='x1_train')
+        plt.plot(range(train_len), x_lbl[:train_len, 1], label='x2_train')
+        plt.plot(range(train_len, len(x_lbl)), x_lbl[train_len:, 0], label='x1')
+        plt.plot(range(train_len, len(x_lbl)), x_lbl[train_len:, 1], label='x2')
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), fancybox=True, shadow=False, ncol=2)
+        plt.savefig('example1.png')
+        '''
+
+        x_train_max = x_lbl[x_lbl[:, 3]==1, :2].max(axis=0)
+        x_train_max = x_train_max.tolist()+[1]*2  # only normalize for the first 2 columns
+        print(x_train_max)
+        x_normalize = np.divide(x_lbl, x_train_max)
+        print(x_normalize)
+
+        '''
+        plt.figure(figsize=(50, 4))
+        plt.plot(range(train_len), x_normalize[:train_len, 0], label='x1_train_normalized')
+        plt.plot(range(train_len), x_normalize[:train_len, 1], label='x2_train_normalized')
+        plt.plot(range(train_len, len(x_normalize)), x_normalize[train_len:, 0], label='x1_test_normalized')
+        plt.plot(range(train_len, len(x_normalize)), x_normalize[train_len:, 1], label='x2_test_normalized')
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), fancybox=True, shadow=False, ncol=2)
+        plt.savefig('example2.png')
+        '''
+        
+        X_in, X_out, lbl = truncate(x_normalize, feature_cols=range(3), target_cols=range(3), 
+                            label_col=3, train_len=N, test_len=M)
+        print(X_in.shape, X_out.shape, lbl.shape)
+        
         X_input_train = X_in[np.where(lbl==1)]
         X_output_train = X_out[np.where(lbl==1)]
         X_input_test = X_in[np.where(lbl==0)]
         X_output_test = X_out[np.where(lbl==0)]
-        print("Finish data loadding")
+        
         print(X_input_train.shape, X_output_train.shape)
         print(X_input_test.shape, X_output_test.shape)
-
+        print("Finish data loadding")
+        '''
         X_train, X_test, Y_train, Y_test = train_test_split(dataset[:,:-1], dataset[:,-1].astype(int), test_size=0.2, random_state=None, shuffle=True)
-        
+        '''
        
         
-        model = model(N, M, X_train, Y_train)
-        opt = Adam(lr=0.01, clipnorm=1)
-        model.compile(loss='mean_squared_error', optimizer=opt, metrics=['mae'])
-        model.summary()
-
-        ep=1200
+        model = build(N, M, X_input_train, X_output_train)
+       
+        
+        epc=1200
         es = EarlyStopping(monitor='val_loss', mode='min', patience=50)
         history = model.fit(X_input_train[:, :, :2], X_output_train[:, :, :2], validation_split=0.2, 
                         epochs=epc, verbose=1, callbacks=[es], 
-                        batch_size=100)
-        train_mae = history.history['mae']
-        valid_mae = history.history['val_mae']
+                        batch_size=1200)
+        train_acc = history.history['categorical_accuracy']
+        valid_acc = history.history['val_categorical_accuracy']
+
+        #train_acc = history.history['accuracy']
+        #valid_acc = history.history['accuracy']
         
         model.save('model_caching_seq2seq.h5')
+        plt.figure(figsize=(15, 4))
+        plt.plot(train_acc, label='train acc'), 
+        plt.plot(valid_acc, label='validation acc')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.title('train vs. validation accuracy')
+        plt.legend( bbox_to_anchor=(0.5, -0.15), fancybox=True, shadow=False, ncol=2)
+        plt.savefig('training_acc_curve.png')
+
+        plt.figure(figsize=(15, 4))
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['Training', 'Validation'], loc='upper right')
+        plt.savefig('training_loss_curve.png')
+        
+        #model = keras.models.load_model('model_caching_seq2seq.h5')
+        
+        print("Evaluate on test data")
+        
+        results = model.evaluate(np.delete(X_input_test, 2, axis=2), np.delete(X_output_test, 2, axis=2), batch_size=64)
+        print("test loss, test acc:", results)
+
+        
+        
+        #train_pred_detrend, train_true_detrend, test_pred_detrend, test_true_detrend = test(model, X_input_train, X_input_test, X_output_train, X_output_test,x_train_max)
+        
+        
         
 
 if __name__ == "__main__":
