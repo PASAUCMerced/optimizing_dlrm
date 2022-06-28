@@ -1,11 +1,11 @@
+from sklearn.semi_supervised import LabelSpreading
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import random
-
+import numpy as np
+from iou_loss import iou_pytorch 
 from torch.autograd import Variable
-
-from iou_loss import iou_pytorch
 
 def mask_3d(inputs, seq_len, mask_value=0.):
     batches = inputs.size()[0]
@@ -68,9 +68,9 @@ class EncoderRNN(nn.Module):
     def forward(self, inputs, hidden, input_lengths):
         if self.dnn_layers > 0:
             inputs = self.run_dnn(inputs)
-        x = pack_padded_sequence(inputs, input_lengths, batch_first=True)
+        x = torch.nn.utils.rnn.pack_padded_sequence(inputs, input_lengths, batch_first=True)
         output, state = self.rnn(x, hidden)
-        output, _ = pad_packed_sequence(output, batch_first=True, padding_value=0.)
+        output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True, padding_value=0.)
 
         if self.bi:
             output = output[:, :, :self.hidden_size] + output[:, :, self.hidden_size:]
@@ -122,6 +122,7 @@ class RNNDecoder(Decoder):
     def forward(self, **kwargs):
         input = kwargs["input"]
         hidden = kwargs["hidden"]
+    
         # RNN (Eq 7 paper)
         embedded = self.embedding(input).unsqueeze(0)
         rnn_input = torch.cat((embedded, hidden.unsqueeze(0)), 2)  # NOTE : Tf concats `lambda inputs, attention: array_ops.concat([inputs, attention], -1)`.
@@ -255,13 +256,15 @@ class LuongDecoder(Decoder):
         # /!\ Don't apply tanh on outputs, it fucks everything up
         output = self.character_distribution(torch.cat((rnn_output, context), 1))
 
+        
+
         # Apply log softmax if loss is NLL
         if self.decoder_output_fn:
             output = self.decoder_output_fn(output, -1)
 
         if len(output.size()) == 3:
             output = output.squeeze(1)
-
+        
         return output, hidden.squeeze(0), weights
 
 
@@ -388,9 +391,9 @@ class EncoderPyRNN(nn.Module):
         :return:
         """
         for i in range(self.n_layers):
-            x = pack_padded_sequence(inputs, input_lengths, batch_first=True)
+            x = torch.nn.utils.rnn.pack_padded_sequence(inputs, input_lengths, batch_first=True)
             output, hidden = getattr(self, 'pRNN_'+str(i))(x, hidden)
-            output, _ = pad_packed_sequence(output, batch_first=True, padding_value=0.)
+            output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True, padding_value=0.)
             hidden = hidden
 
             if self.bi:
@@ -430,7 +433,7 @@ class Seq2Seq(nn.Module):
         self.batch_size = config.get("batch_size", 1)
         self.sampling_prob = config.get("sampling_prob", 0.)
         self.gpu = config.get("gpu", False)
-
+        self.config = config
         # Encoder
         if config["encoder"] == "PyRNN":
             self._encoder_style = "PyRNN"
@@ -449,12 +452,15 @@ class Seq2Seq(nn.Module):
             self.decoder = RNNDecoder(config)
 
         if config.get('loss') == 'cross_entropy':
+            print("1")
             self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=0)
-            config['loss'] = 'IoU'
-        elif config.get('loss') == 'Intersection_over_Union':
-            self.loss_fn = iou_pytorch(ignore_index=0)
             config['loss'] = 'cross_entropy'
+        elif config.get('loss') == 'Intersection_over_Union':
+            print("2")
+            #self.loss_fn = iou_pytorch()
+            config['loss'] = 'Intersection_over_Union'
         else:
+            print("3")
             self.loss_fn = torch.nn.NLLLoss(ignore_index=0)
             config['loss'] = 'NLL'
         self.loss_type = config['loss']
@@ -568,6 +574,7 @@ class Seq2Seq(nn.Module):
 
         logits = mask_3d(logits.transpose(1, 0), targets_lengths, mask_value)
         logits = logits.contiguous().view(-1, self.vocab_size)
+        
 
         return logits, labels.long(), alignments
 
@@ -596,7 +603,8 @@ class Seq2Seq(nn.Module):
             y = y.cuda()
             x_len = x_len.cuda()
             y_len = y_len.cuda()
-
+        
+        
         if self._encoder_style == "PyRNN":
             encoder_out, encoder_state, x_len = self.encode(x, x_len)
         else:
@@ -606,6 +614,14 @@ class Seq2Seq(nn.Module):
 
     def loss(self, batch):
         logits, labels, alignments = self.step(batch)
-        loss = self.loss_fn(logits, labels)
+        if self.config.get('loss') == 'Intersection_over_Union':
+            accuracy, loss = iou_pytorch(logits, labels)
+        else:
+            loss = self.loss_fn(logits, labels)
+        print(accuracy)
         # loss2 = self.custom_loss(logits, labels)
         return loss, logits, labels, alignments
+
+
+
+
