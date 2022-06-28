@@ -8,7 +8,7 @@ import tqdm
 import torch.nn.functional as F
 from seq2seq_prefetching import Seq2Seq
 from torch.utils.data import DataLoader
-from utils import ToyDataset, pad_collate, MyDataset
+from utils import pad_collate, MyDataset
 import pandas as pd
 import numpy as np
 
