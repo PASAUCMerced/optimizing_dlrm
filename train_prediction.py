@@ -8,9 +8,9 @@ import tqdm
 import torch.nn.functional as F
 from seq2seq_prefetching import Seq2Seq
 from torch.utils.data import DataLoader
-from utils import ToyDataset, pad_collate
+from utils import ToyDataset, pad_collate, MyDataset
 import pandas as pd
-import numpy as nphttps://github.com/PASAUCMerced/optimizing_dlrm/blob/main/train_prediction.py
+import numpy as np
 
 #processing data: chuckization, chunksize is 1
 def data(input_file):
@@ -74,7 +74,7 @@ def evaluate(model, eval_loader):
     print("  End of evaluation : loss {:05.3f} , acc {:03.1f}".format(np.mean(losses), np.mean(accs)))
     # return {'loss': np.mean(losses), 'cer': np.mean(accs)*100}
 
-def run(dataset, eval_dataset):
+def run(mydataset, gt):
     USE_CUDA = torch.cuda.is_available()
 
     config_path = FLAGS.config
@@ -86,15 +86,24 @@ def run(dataset, eval_dataset):
         config = json.load(f)
 
     config["gpu"] = torch.cuda.is_available()
-    print(dataset.shape)
-    print(eval_dataset.shape)
     BATCHSIZE = 30
-    train_loader = DataLoader(dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate, drop_last=True)
+    config["batch_size"] = 30
+    input_sequence_length = config["n_channels"]
+    evaluation_windown_length = config["evaluation_window"]
+    
+    
+    train_set = MyDataset(mydataset[:FLAGS.train_size],gt[:FLAGS.train_size],input_sequence_length,evaluation_windown_length)
+    eval_dataset = MyDataset(mydataset[FLAGS.train_size:len(gt)],gt[FLAGS.train_size:len(gt)],input_sequence_length,evaluation_windown_length)
+    
+    #train_set = ToyDataset(5, 15)
+    #eval_dataset = ToyDataset(5, 15, type='eval')
+    train_loader = DataLoader(train_set, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate, drop_last=True)
     eval_loader = DataLoader(eval_dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate,
                                   drop_last=True)
-    config["batch_size"] = BATCHSIZE
-    print(train_loader.shape)
-    print(eval_loader.shape)
+    
+
+    #print(train_loader.shape)
+    #print(eval_loader.shape)
     # Models
     model = Seq2Seq(config)
 
@@ -124,7 +133,7 @@ def run(dataset, eval_dataset):
 
         # Train needs to return model and optimizer, otherwise the model keeps restarting from zero at every epoch
         model, optimizer = train(model, optimizer, train_loader, run_state)
-        evaluate(model, eval_loader)
+        #evaluate(model, eval_loader)
 
         # TODO implement save models function
 
@@ -148,6 +157,7 @@ if __name__ == '__main__':
     #ensure the training and groudtruth has the same size. When we processing groundtruth, we cutout some data
     dataset = dataset[:len(gt)]
     FLAGS.train_size = int(len(gt)*0.8)
-    FLAGS.eval_size = int(len(gt)*0.2)
-    FLAGS.epochs = 100
-    run(dataset, gt)
+    FLAGS.eval_size = len(gt) - FLAGS.train_size
+    FLAGS.epochs = 10
+
+    run(np.array(dataset), np.array(gt))
