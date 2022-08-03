@@ -51,7 +51,7 @@ class EncoderRNN(nn.Module):
                     out_features=self.hidden_size
                 ))
         gru_input_dim = self.input_size if self.dnn_layers == 0 else self.hidden_size
-        self.rnn = nn.GRU(
+        self.rnn = nn.LSTM(
             gru_input_dim,
             self.hidden_size,
             self.layers,
@@ -68,13 +68,15 @@ class EncoderRNN(nn.Module):
     def forward(self, inputs, hidden, input_lengths):
         if self.dnn_layers > 0:
             inputs = self.run_dnn(inputs)
-        x = torch.nn.utils.rnn.pack_padded_sequence(inputs, input_lengths, batch_first=True)
-        output, state = self.rnn(x, hidden)
-        output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True, padding_value=0.)
+        x = inputs.unsqueeze(0)
+        x = x.to(torch.float32)
+        #x = torch.nn.utils.rnn.pack_padded_sequence(inputs, input_lengths, batch_first=True)
+        outputs, (hidden, cell)  = self.rnn(x)
+        #output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True, padding_value=0.)
 
         if self.bi:
             output = output[:, :, :self.hidden_size] + output[:, :, self.hidden_size:]
-        return output, state
+        return hidden, cell
 
     def init_hidden(self, batch_size):
         h0 = Variable(torch.zeros(2 if self.bi else 1, batch_size, self.hidden_size))
@@ -91,7 +93,7 @@ class Decoder(nn.Module):
         embedding_dim = config.get("embedding_dim", None)
         self.embedding_dim = embedding_dim if embedding_dim is not None else self.hidden_size
         self.embedding = nn.Embedding(config.get("n_classes", 32), self.embedding_dim, padding_idx=0)
-        self.rnn = nn.GRU(
+        self.rnn = nn.LSTM(
             input_size=self.embedding_dim+self.hidden_size if config['decoder'].lower() == 'bahdanau' else self.embedding_dim,
             hidden_size=self.hidden_size,
             num_layers=config.get("decoder_layers", 1),
@@ -245,7 +247,7 @@ class LuongDecoder(Decoder):
         prev_hidden = prev_hidden.unsqueeze(0)
         # rnn_input = torch.cat((embedded, prev_context), -1) # NOTE : Tf concats `lambda inputs, attention: array_ops.concat([inputs, attention], -1)`.
         # rnn_output, hidden = self.rnn(rnn_input.transpose(1, 0), prev_hidden)
-        rnn_output, hidden = self.rnn(embedded, prev_hidden)
+        rnn_output, hidden = self.rnn(embedded, (hidden, cell))
         rnn_output = rnn_output.squeeze(1)
 
         # Attention weights (Eq 6 paper)
@@ -452,15 +454,12 @@ class Seq2Seq(nn.Module):
             self.decoder = RNNDecoder(config)
 
         if config.get('loss') == 'cross_entropy':
-            print("1")
             self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=0)
             config['loss'] = 'cross_entropy'
         elif config.get('loss') == 'Intersection_over_Union':
-            print("2")
             #self.loss_fn = iou_pytorch()
             config['loss'] = 'Intersection_over_Union'
         else:
-            print("3")
             self.loss_fn = torch.nn.NLLLoss(ignore_index=0)
             config['loss'] = 'NLL'
         self.loss_type = config['loss']
@@ -475,7 +474,7 @@ class Seq2Seq(nn.Module):
         else:
             encoder_outputs, encoder_state = self.encoder.forward(x, init_state, x_len)
 
-        assert encoder_outputs.size()[0] == self.batch_size, encoder_outputs.size()
+        #assert encoder_outputs.size()[0] == self.batch_size, encoder_outputs.size()
         assert encoder_outputs.size()[-1] == self.decoder.hidden_size
 
         if self._encoder_style == "PyRNN":
@@ -524,8 +523,8 @@ class Seq2Seq(nn.Module):
             # - an hidden state, [B, H]
             # - encoder outputs, [B, T, H]
 
-            check_size(decoder_input, self.batch_size)
-            check_size(decoder_hidden, self.batch_size, self.decoder.hidden_size)
+            #check_size(decoder_input, self.batch_size)
+            #check_size(decoder_hidden, self.batch_size, self.decoder.hidden_size)
 
             # The decoder outputs, at each time step t :
             # - an output, [B]
@@ -534,7 +533,7 @@ class Seq2Seq(nn.Module):
             # - weights, [B, T]
 
             if self.use_attention:
-                check_size(decoder_context, self.batch_size, self.decoder.hidden_size)
+                #check_size(decoder_context, self.batch_size, self.decoder.hidden_size)
                 outputs, decoder_hidden, attention_weights = self.decoder.forward(
                     input=decoder_input.long(),
                     prev_hidden=decoder_hidden,
@@ -597,14 +596,13 @@ class Seq2Seq(nn.Module):
         return ce_loss
 
     def step(self, batch):
-        x, y, x_len, y_len = batch
+        x, y = batch
         if self.gpu:
             x = x.cuda()
             y = y.cuda()
-            x_len = x_len.cuda()
-            y_len = y_len.cuda()
         
-        
+        x_len = self.config.get("n_channels", 1)
+        y_len = self.config.get("n_classes", 1)
         if self._encoder_style == "PyRNN":
             encoder_out, encoder_state, x_len = self.encode(x, x_len)
         else:
@@ -616,6 +614,7 @@ class Seq2Seq(nn.Module):
         logits, labels, alignments = self.step(batch)
         if self.config.get('loss') == 'Intersection_over_Union':
             accuracy, loss = iou_pytorch(logits, labels)
+            loss = loss 
         else:
             loss = self.loss_fn(logits, labels)
         print(accuracy)
