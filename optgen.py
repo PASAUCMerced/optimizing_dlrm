@@ -95,7 +95,7 @@ if __name__ == "__main__":
     blockTraceLength = len(block_tmp)
     cache_size = int(cache_size * len(block_tmp))
     
-    print (f"created block trace list, cache size is {cache_size}")
+    print(f"created block trace list, cache size is {cache_size}")
     
 
     # build OPT 

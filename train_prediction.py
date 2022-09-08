@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import tqdm
 import torch.nn.functional as F
 from seq2seq_prefetching import Seq2Seq
-from torch.utils import data
+from torch.utils.data import DataLoader
+from utils import ToyDataset, pad_collate, MyDataset
 import pandas as pd
 import numpy as np
 
@@ -73,10 +74,10 @@ def evaluate(model, eval_loader):
     print("  End of evaluation : loss {:05.3f} , acc {:03.1f}".format(np.mean(losses), np.mean(accs)))
     # return {'loss': np.mean(losses), 'cer': np.mean(accs)*100}
 
-def run(dataset, eval_dataset):
+def run(mydataset, gt):
     USE_CUDA = torch.cuda.is_available()
 
-    config_path = os.path.join("experiments", FLAGS.config)
+    config_path = FLAGS.config
 
     if not os.path.exists(config_path):
         raise FileNotFoundError
@@ -85,13 +86,34 @@ def run(dataset, eval_dataset):
         config = json.load(f)
 
     config["gpu"] = torch.cuda.is_available()
-
     BATCHSIZE = 30
-    train_loader = data.DataLoader(dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate, drop_last=True)
-    eval_loader = data.DataLoader(eval_dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate,
+    config["batch_size"] = 30
+    input_sequence_length = config["n_channels"]
+    evaluation_windown_length = config["evaluation_window"]
+    
+    
+    train_set = MyDataset(mydataset[:FLAGS.train_size],gt[:FLAGS.train_size],input_sequence_length,evaluation_windown_length)
+    eval_dataset = MyDataset(mydataset[FLAGS.train_size:len(gt)],gt[FLAGS.train_size:len(gt)],input_sequence_length,evaluation_windown_length)
+    
+    #train_set = ToyDataset(5, 15)
+    #eval_dataset = ToyDataset(5, 15, type='eval')
+    train_loader = DataLoader(train_set, batch_size=BATCHSIZE, shuffle=False, collate_fn=None, drop_last=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=None,
                                   drop_last=True)
-    config["batch_size"] = BATCHSIZE
+    '''
+    t = tqdm.tqdm(train_loader)
+    idx = 0
+    for batch in t:
+        print(idx)
+        print(batch)
+        idx = idx+1
+        if idx==1:
+            break
 
+    return
+    '''
+    #print(train_loader.shape)
+    #print(eval_loader.shape)
     # Models
     model = Seq2Seq(config)
 
@@ -128,23 +150,24 @@ def run(dataset, eval_dataset):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    #parser.add_argument('--config', type=str)
+    parser.add_argument('--config', type=str)
     parser.add_argument('--epochs', default=120, type=int)
-    parser.add_argument('traceFile', type=str,  help='trace file name\n')
-    #parser.add_argument('--n', default=10,type=int,  help='input sequence length N\n')
-    #parser.add_argument('--m', default=50,type=int,  help='output sequence length\n')
-    #parser.add_argument('--w', default=50,type=int,  help='prediction window size length\n')
-    args = parser.parse_args() 
+    parser.add_argument('--traceFile', type=str,  help='trace file name\n')
+    #parser.add_argument('--epochs', default=1200, type=int)
+    #parser.add_argument('--train_size', default=4000000, type=int)
+    #parser.add_argument('--eval_size', default=2600, type=int)
+    #args = parser.parse_args() 
 
-    traceFile = args.traceFile
     FLAGS, _ = parser.parse_known_args()
-    
-    gt_trace = traceFile[0:traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.txt"
-    dataset = data(traceFile) 
+    gt_trace = FLAGS.traceFile[0:FLAGS.traceFile.rfind(".pt")] + "_dataset_cache_miss_trace.txt"
+    dataset = data(FLAGS.traceFile) 
     gt_file = open(gt_trace, "r")
     gt_tmp = gt_file.readlines()
     gt =  [float(x) for x in gt_tmp]
     #ensure the training and groudtruth has the same size. When we processing groundtruth, we cutout some data
     dataset = dataset[:len(gt)]
+    FLAGS.train_size = int(len(gt)*0.8)
+    FLAGS.eval_size = len(gt) - FLAGS.train_size
+    FLAGS.epochs = 10
 
-    run(dataset, gt)
+    run(np.array(dataset), np.array(gt))
