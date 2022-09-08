@@ -58,4 +58,8 @@ def prefetch_neighbour(res):
     ret=[]
     for i in range(5):
         ret.append(i+res)
+<<<<<<< HEAD
     return ret
+=======
+    return ret
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799

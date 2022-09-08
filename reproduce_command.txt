@@ -4,10 +4,19 @@
    $ python optgen.py 0.2 200000000 /path/to/fbgemm_t856_bs65536_15.pt 
 
 2. Train ML model for caching
+<<<<<<< HEAD
     We set input sequence length as 150 and output sequence length as 10. The total number of training steps is 12K
     It requires about 4H to train a model
     $ python3 seq2seq_caching.py /path/to/fbgemm_t856_bs65536_15.pt 150 10
 
 3. Train ML model for prefetching
+=======
+    We set input sequence length as 150 and output sequence length as 10. The total number of training steps is 1.2K
+    It takes about 6H to train the model
+    $ python3 seq2seq_caching.py /path/to/fbgemm_t856_bs65536_15.pt 150 10
+
+3. Train ML model for prefetching
+    It takes about 5 hours to train the model
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
     $ python3 train_prediction.py --config example_seq2seq.json --traceFile /path/to/fbgemm_t856_bs65536_15.pt 
 

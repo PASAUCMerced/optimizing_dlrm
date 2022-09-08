@@ -8,7 +8,11 @@ import tqdm
 import torch.nn.functional as F
 from seq2seq_prefetching import Seq2Seq
 from torch.utils.data import DataLoader
+<<<<<<< HEAD
 from utils import ToyDataset, pad_collate, MyDataset
+=======
+from utils import pad_collate, MyDataset
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
 import pandas as pd
 import numpy as np
 
@@ -97,6 +101,7 @@ def run(mydataset, gt):
     
     #train_set = ToyDataset(5, 15)
     #eval_dataset = ToyDataset(5, 15, type='eval')
+<<<<<<< HEAD
     train_loader = DataLoader(train_set, batch_size=BATCHSIZE, shuffle=False, collate_fn=None, drop_last=True)
     eval_loader = DataLoader(eval_dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=None,
                                   drop_last=True)
@@ -112,6 +117,13 @@ def run(mydataset, gt):
 
     return
     '''
+=======
+    train_loader = DataLoader(train_set, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate, drop_last=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=BATCHSIZE, shuffle=False, collate_fn=pad_collate,
+                                  drop_last=True)
+    
+
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
     #print(train_loader.shape)
     #print(eval_loader.shape)
     # Models
@@ -143,7 +155,7 @@ def run(mydataset, gt):
 
         # Train needs to return model and optimizer, otherwise the model keeps restarting from zero at every epoch
         model, optimizer = train(model, optimizer, train_loader, run_state)
-        evaluate(model, eval_loader)
+        #evaluate(model, eval_loader)
 
         # TODO implement save models function
 
@@ -170,4 +182,8 @@ if __name__ == '__main__':
     FLAGS.eval_size = len(gt) - FLAGS.train_size
     FLAGS.epochs = 10
 
+<<<<<<< HEAD
     run(np.array(dataset), np.array(gt))
+=======
+    run(np.array(dataset), np.array(gt))
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799

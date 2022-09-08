@@ -91,6 +91,7 @@ def pad_collate(batch, values=(0, 0), dim=0):
     ys = ys[yids]
     
     return xs, ys, sequence_lengths.int(), target_lengths.int()
+<<<<<<< HEAD
     '''
     print(len(batch))
     (xx, yy) = zip(*batch)
@@ -104,6 +105,8 @@ def pad_collate(batch, values=(0, 0), dim=0):
     
     return xs, ys, x_lens, y_lens
     '''
+=======
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
 
 def collate_fn(data):
     """
@@ -124,6 +127,7 @@ def collate_fn(data):
 
     return features.float(), labels.long(), lengths.long()
 
+<<<<<<< HEAD
 
 class ToyDataset(data.Dataset):
     """
@@ -162,14 +166,22 @@ class ToyDataset(data.Dataset):
 
         return x, b
 
+=======
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
 class MyDataset(data.Dataset):
 
     def __init__(self, sample, groundtruth, input_sequence=10,evaluation_window=10):
         self.sample = sample
         self.groundtruth = groundtruth
+<<<<<<< HEAD
         self.max = max(np.max(sample),np.max(groundtruth))
         self.set = [self._sample(idx,input_sequence,evaluation_window) for idx in range(0, len(self.sample), input_sequence)]
         #self.set = [self._test(idx,input_sequence,evaluation_window) for idx in range(0, len(self.sample), input_sequence)]
+=======
+        
+        #self.set = [self._sample(idx,input_sequence,evaluation_window) for idx in range(0, len(self.sample), input_sequence)]
+        self.set = [self._test(idx,input_sequence,evaluation_window) for idx in range(0, len(self.sample), input_sequence)]
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
         
 
     def __len__(self):
@@ -188,10 +200,15 @@ class MyDataset(data.Dataset):
         
         y = self.groundtruth[idx+sample_length:min(idx+sample_length+gt_length, len(self.groundtruth))]
         if len(y)<gt_length:
+<<<<<<< HEAD
             y = np.append(y, torch.zeros(gt_length-len(y)))
         x = np.array(x,dtype='float64')/500000
         y = np.array(y,dtype='float64')/500000
         return x,y
+=======
+            y.append(np.zeros(gt_length-len(y)))
+        return np.array(x), np.array(y)
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
 
     def _test(self, offset, sample_length, gt_length):
         x, y = [], []
@@ -203,10 +220,19 @@ class MyDataset(data.Dataset):
                 x.append(self.sample[offset:sample_length+offset])
                 offset += 1
         
+<<<<<<< HEAD
         x = np.array(x,dtype='f')/self.max
         y = np.array(y,dtype='f')/self.max
+=======
+        x = np.array(x,dtype='f')/500000
+        y = np.array(y,dtype='f')/500000
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
         
         a = x.shape
         if(a[0]<sample_length):
             return [],[]
+<<<<<<< HEAD
         return x,y
+=======
+        return x,y
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799

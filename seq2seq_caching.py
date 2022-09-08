@@ -51,7 +51,11 @@ def build(N, M, X_input_train, X_output_train):
 
         # encoder
         encoder_stack_h, encoder_last_h, encoder_last_c = LSTM(
+<<<<<<< HEAD
         n_hidden, activation='sigmoid', dropout=0.2, recurrent_dropout=0.2, 
+=======
+        n_hidden, activation='relu', dropout=0.2, recurrent_dropout=0.2, 
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
         return_state=True, return_sequences=True)(input_train)
         print(encoder_stack_h)
         print(encoder_last_h)
@@ -65,7 +69,11 @@ def build(N, M, X_input_train, X_output_train):
         decoder_input = RepeatVector(output_train.shape[1])(encoder_last_h)
         print(decoder_input)
 
+<<<<<<< HEAD
         decoder_stack_h = LSTM(n_hidden, activation='sigmoid', dropout=0.2, recurrent_dropout=0.2,
+=======
+        decoder_stack_h = LSTM(n_hidden, activation='relu', dropout=0.2, recurrent_dropout=0.2,
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
         return_state=False, return_sequences=True)(
         decoder_input, initial_state=[encoder_last_h, encoder_last_c])
         print(decoder_stack_h)
@@ -85,6 +93,7 @@ def build(N, M, X_input_train, X_output_train):
 
         model = Model(inputs=input_train, outputs=out)
         opt = Adam(lr=0.001, clipnorm=1)
+<<<<<<< HEAD
         #model.compile(loss=keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=[keras.metrics.CategoricalAccuracy()])
         #model.compile(loss='mean_squared_error', optimizer=opt, metrics=['accuracy'])
         model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
@@ -95,6 +104,16 @@ def build(N, M, X_input_train, X_output_train):
         return model
 
 
+=======
+        model.compile(loss=keras.losses.CategoricalCrossentropy(), optimizer=opt, metrics=[keras.metrics.CategoricalAccuracy()])
+        #model.compile(loss='mean_squared_error', optimizer=opt, metrics=['accuracy'])
+
+        model.summary()
+        #plot_model(model, to_file='model_plot.png', show_shapes=True, show_layer_names=True)
+        return model
+
+
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
 
 def test(model, X_input_train, X_input_test, X_output_train, X_output_test, x_train_max):
         train_pred_detrend = model.predict(X_input_train[:, :, :2])*x_train_max[:2]
@@ -212,6 +231,7 @@ def main():
         model = build(N, M, X_input_train, X_output_train)
        
         
+<<<<<<< HEAD
         epc=10
         es = EarlyStopping(monitor='val_loss', mode='min', patience=50)
         history = model.fit(X_input_train[:, :, :2], X_output_train[:, :, :2], validation_split=0.2, 
@@ -222,6 +242,18 @@ def main():
         
         train_acc = history.history['accuracy']
         valid_acc = history.history['val_accuracy']
+=======
+        epc=1200
+        es = EarlyStopping(monitor='val_loss', mode='min', patience=50)
+        history = model.fit(X_input_train[:, :, :2], X_output_train[:, :, :2], validation_split=0.2, 
+                        epochs=epc, verbose=1, callbacks=[es], 
+                        batch_size=1200)
+        train_acc = history.history['categorical_accuracy']
+        valid_acc = history.history['val_categorical_accuracy']
+
+        #train_acc = history.history['accuracy']
+        #valid_acc = history.history['accuracy']
+>>>>>>> f3d3b223fb7d52cb99ce0a48b9e4c3a6baed5799
         
         model.save('model_caching_seq2seq.h5')
         plt.figure(figsize=(15, 4))
